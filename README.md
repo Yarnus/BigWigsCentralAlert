@@ -68,6 +68,7 @@ Run the Lua 5.1-compatible selector test:
 
 ```bash
 luajit tests/test_selector.lua
+luajit tests/test_adapter.lua
 ```
 
 Check every Lua file for syntax errors:

@@ -36,17 +36,55 @@ local function CopyDefaults(source)
     return result
 end
 
-local function ApplyDefaults(target, source)
-    for key, value in pairs(source) do
-        if type(value) == "table" then
-            if type(target[key]) ~= "table" then
-                target[key] = {}
-            end
-            ApplyDefaults(target[key], value)
-        elseif target[key] == nil then
-            target[key] = value
-        end
+local function NormalizeNumber(value, fallback, minimum, maximum)
+    value = tonumber(value)
+    if not value or value ~= value or value == math.huge or value == -math.huge then
+        return fallback
     end
+    value = math.floor(value + 0.5)
+    return math.max(minimum, math.min(maximum, value))
+end
+
+local function NormalizeBoolean(value, fallback)
+    return type(value) == "boolean" and value or fallback
+end
+
+local function NormalizeEnum(value, fallback, allowed)
+    return allowed[value] and value or fallback
+end
+
+function ns.NormalizeSettings(saved)
+    saved = type(saved) == "table" and saved or {}
+    local result = CopyDefaults(defaults)
+
+    if type(saved.font) == "string" and saved.font ~= "" then
+        result.font = saved.font
+    end
+    result.fontSize = NormalizeNumber(saved.fontSize, defaults.fontSize, 12, 72)
+    result.spacing = NormalizeNumber(saved.spacing, defaults.spacing, 0, 30)
+    result.x = NormalizeNumber(saved.x, defaults.x, -900, 900)
+    result.y = NormalizeNumber(saved.y, defaults.y, -500, 500)
+    result.leadTime = NormalizeNumber(saved.leadTime, defaults.leadTime, 0, 20)
+
+    result.outline = NormalizeEnum(saved.outline, defaults.outline, {
+        NONE = true, OUTLINE = true, THICKOUTLINE = true,
+    })
+    result.layout = NormalizeEnum(saved.layout, defaults.layout, {
+        INLINE = true, STACKED = true,
+    })
+    result.rounding = NormalizeEnum(saved.rounding, defaults.rounding, {
+        CEIL = true, FLOOR = true,
+    })
+
+    for _, key in ipairs({ "monochrome", "shadow", "locked", "brackets", "showImportant", "showNormal" }) do
+        result[key] = NormalizeBoolean(saved[key], defaults[key])
+    end
+    return result
+end
+
+function ns.GetStackedLayoutMetrics(fontSize, spacing)
+    local rowOffset = (fontSize + spacing) / 2
+    return rowOffset, fontSize * 2 + spacing + 20
 end
 
 local function CanRead(value)
@@ -125,7 +163,8 @@ function ns.RefreshSelection(force)
     currentBar = selected
     ScheduleTransition(selected, nextEligibleAt)
     if selected then
-        ns.Display:ShowBar(selected)
+        local record = bars[selected]
+        ns.Display:ShowBar(selected, record and record.icon)
     else
         ns.Display:Hide()
     end
@@ -141,7 +180,7 @@ function ns.RequestRefresh()
     end)
 end
 
-function ns.TrackBar(bar)
+function ns.TrackBar(bar, icon)
     if not bar then
         return
     end
@@ -151,6 +190,7 @@ function ns.TrackBar(bar)
         record = { order = sequence, important = false }
         bars[bar] = record
     end
+    record.icon = icon
     ns.RefreshSelection(true)
 end
 
@@ -216,8 +256,9 @@ function ns.ClearBars()
     end
 end
 
-function ns.StartTest()
+function ns.StartTest(isAutoPreview)
     ns.testActive = true
+    ns.autoPreviewActive = isAutoPreview == true
     CancelTransitionTimer()
     currentBar = nil
     ns.Display:ShowTest(ns.L.TEST_TEXT, math.max(5, ns.db.leadTime))
@@ -225,8 +266,15 @@ end
 
 function ns.StopTest()
     ns.testActive = false
+    ns.autoPreviewActive = false
     ns.Display:Hide()
     ns.RefreshSelection(true)
+end
+
+function ns.StopAutoPreview()
+    if ns.testActive and ns.autoPreviewActive then
+        ns.StopTest()
+    end
 end
 
 function ns.ToggleTest()
@@ -254,9 +302,12 @@ eventFrame:SetScript("OnEvent", function(_, _, loadedAddon)
         return
     end
 
-    BigWigsCentralAlertDB = BigWigsCentralAlertDB or {}
-    ApplyDefaults(BigWigsCentralAlertDB, defaults)
+    BigWigsCentralAlertDB = ns.NormalizeSettings(BigWigsCentralAlertDB)
     ns.db = BigWigsCentralAlertDB
+    local media = LibStub and LibStub("LibSharedMedia-3.0", true)
+    if media and not media:IsValid("font", ns.db.font) then
+        ns.db.font = defaults.font
+    end
     ns.Display:Initialize()
     ns.Adapter:Initialize()
     ns.Options:Initialize()

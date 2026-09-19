@@ -58,12 +58,15 @@ local function ApplyLayout()
     iconTexture:SetSize(ns.db.fontSize, ns.db.fontSize)
 
     if ns.db.layout == "STACKED" then
-        labelText:SetPoint("CENTER", frame, "CENTER", 0, 18 + spacing / 2)
+        local rowOffset, frameHeight = ns.GetStackedLayoutMetrics(ns.db.fontSize, spacing)
+        frame:SetHeight(frameHeight)
+        labelText:SetPoint("CENTER", frame, "CENTER", 0, rowOffset)
         iconTexture:SetPoint("RIGHT", labelText, "LEFT", -spacing, 0)
-        timerText:SetPoint("CENTER", frame, "CENTER", 0, -18 - spacing / 2)
+        timerText:SetPoint("CENTER", frame, "CENTER", 0, -rowOffset)
         prefixText:SetPoint("RIGHT", timerText, "LEFT", 0, 0)
         suffixText:SetPoint("LEFT", timerText, "RIGHT", 0, 0)
     else
+        frame:SetHeight(math.max(130, ns.db.fontSize + 40))
         labelText:SetPoint("RIGHT", frame, "CENTER", -spacing / 2, 0)
         iconTexture:SetPoint("RIGHT", labelText, "LEFT", -spacing, 0)
         prefixText:SetPoint("LEFT", labelText, "RIGHT", spacing, 0)
@@ -227,10 +230,10 @@ function Display:ApplySettings()
     end
 end
 
-function Display:ShowBar(bar)
+function Display:ShowBar(bar, originalIcon)
     sourceColor = ReadBarColor(bar) or { 1, 1, 1, 1 }
-    sourceIcon = bar:GetIcon()
-    sourceIconShown = bar.candyBarIconFrame and bar.candyBarIconFrame:IsShown() or false
+    sourceIcon = originalIcon
+    sourceIconShown = (canaccessvalue and not canaccessvalue(originalIcon)) or originalIcon ~= nil
     labelText:SetText(bar:GetLabel())
     self:ApplySettings()
     BindExpiration(bar.exp)
@@ -263,7 +266,9 @@ end
 function Display:SetLocked(locked)
     ns.db.locked = locked
     self:ApplySettings()
-    if not locked and not frame:IsShown() then
-        ns.StartTest()
+    if locked then
+        ns.StopAutoPreview()
+    elseif not frame:IsShown() then
+        ns.StartTest(true)
     end
 end

@@ -177,14 +177,12 @@ function Options:Initialize()
     panel:SetScript("OnShow", function()
         self:Refresh()
         if not ns.testActive then
-            ns.StartTest()
+            ns.StartTest(true)
         end
         controls.test:SetText(ns.L.STOP_TEST)
     end)
     panel:SetScript("OnHide", function()
-        if ns.testActive then
-            ns.StopTest()
-        end
+        ns.StopAutoPreview()
     end)
 
     SLASH_BIGWIGSCENTRALALERT1 = "/bwca"

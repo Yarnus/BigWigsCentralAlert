@@ -6,8 +6,8 @@ ns.Adapter = Adapter
 local listener = {}
 local candyRegistered = false
 
-local function OnBarCreated(_, _, bar)
-    ns.TrackBar(bar)
+local function OnBarCreated(_, _, bar, _, _, _, _, icon)
+    ns.TrackBar(bar, icon)
 end
 
 local function OnBarEmphasized(_, _, bar)
