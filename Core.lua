@@ -16,7 +16,6 @@ local defaults = {
     y = 140,
     locked = true,
     brackets = true,
-    secondsSuffix = true,
     rounding = "CEIL",
 }
 
@@ -56,6 +55,10 @@ local function CanRead(value)
         return false
     end
     return type(value) == "number"
+end
+
+function ns.BuildCountdownAffixes(brackets)
+    return brackets and "(" or "", brackets and ")" or ""
 end
 
 function ns.SelectShortest(records)

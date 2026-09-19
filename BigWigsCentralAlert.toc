@@ -3,7 +3,7 @@
 ## Notes: Mirrors the shortest remaining emphasized BigWigs bar in the center of the screen.
 ## Notes-zhCN: 在屏幕中央显示剩余时间最短的 BigWigs 强调条。
 ## Author: Yarnus
-## Version: 0.1.0
+## Version: 0.1.1
 ## IconTexture: Interface\AddOns\BigWigs\Media\Icons\minimap_raid.tga
 ## RequiredDeps: BigWigs
 ## OptionalDeps: LittleWigs, LibSharedMedia-3.0

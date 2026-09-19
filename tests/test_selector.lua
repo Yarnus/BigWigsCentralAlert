@@ -59,6 +59,11 @@ records = {
 }
 assert(namespace.SelectShortest(records) == inaccessibleFirst, "falls back deterministically when expiration cannot be read")
 
+local prefix, suffix = namespace.BuildCountdownAffixes(true)
+assert(prefix == "(" and suffix == ")", "native formatter unit must not receive a duplicate seconds suffix")
+prefix, suffix = namespace.BuildCountdownAffixes(false)
+assert(prefix == "" and suffix == "", "disabled brackets produce no affixes")
+
 local shown
 namespace.Display = {
     ShowBar = function(_, bar) shown = bar end,

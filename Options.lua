@@ -183,8 +183,7 @@ function Options:Initialize()
     CreateSlider(panel, "spacing", ns.L.SPACING, 490, -347, 165, 0, 30, 1)
 
     CreateCheckbox(panel, "brackets", ns.L.BRACKETS, 28, -420)
-    CreateCheckbox(panel, "secondsSuffix", ns.L.SECONDS_SUFFIX, 260, -420)
-    CreateCheckbox(panel, "locked", ns.L.LOCKED, 490, -420, function(locked)
+    CreateCheckbox(panel, "locked", ns.L.LOCKED, 260, -420, function(locked)
         ns.Display:SetLocked(locked)
     end)
 

@@ -42,7 +42,7 @@ Settings include:
 - BigWigs bar color following or custom text/countdown colors
 - single-line or two-line layout
 - spacing and screen position
-- countdown brackets, localized seconds suffix, and rounding
+- countdown brackets and rounding
 - movable preview and position locking
 
 ## Installation
