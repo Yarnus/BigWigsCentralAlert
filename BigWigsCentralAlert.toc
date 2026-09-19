@@ -3,7 +3,7 @@
 ## Notes: Mirrors the shortest remaining eligible BigWigs bar with its icon and color.
 ## Notes-zhCN: 在屏幕中央显示符合条件且剩余时间最短的 BigWigs 计时条及其图标和颜色。
 ## Author: Yarnus
-## Version: 0.2.2
+## Version: 0.2.3
 ## IconTexture: Interface\AddOns\BigWigs\Media\Icons\minimap_raid.tga
 ## RequiredDeps: BigWigs
 ## OptionalDeps: LibSharedMedia-3.0

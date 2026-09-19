@@ -11,7 +11,7 @@ local timerText
 local suffixText
 local dragHint
 local durationBinding
-local secondsFormatter
+local numericFormatter
 local durationObject
 local sourceColor = { 1, 1, 1, 1 }
 local sourceIcon
@@ -81,26 +81,25 @@ local function ConfigureFormatter()
         durationBinding:SetToDefaults()
     end
 
-    secondsFormatter = C_StringUtil.CreateSecondsFormatter()
-    secondsFormatter:SetMinInterval(Enum.SecondsFormatterInterval.Seconds)
-    secondsFormatter:SetDesiredUnitCount(1)
-    if secondsFormatter.SetMillisecondsThreshold then
-        secondsFormatter:SetMillisecondsThreshold(0)
-    end
-
-    local rounding = Enum.SecondsFormatterRounding
-    if ns.db.rounding == "CEIL" then
-        secondsFormatter:SetRounding(rounding.RoundUp or rounding.RoundNearest or rounding.Truncate)
-    else
-        secondsFormatter:SetRounding(rounding.Truncate)
-    end
+    local rounding = Enum.NumericRuleFormatRounding
+    numericFormatter = C_StringUtil.CreateNumericRuleFormatter()
+    numericFormatter:SetBreakpoints({
+        {
+            threshold = 0,
+            step = 1,
+            rounding = ns.db.rounding == "CEIL"
+                and (rounding.Up or rounding.Nearest)
+                or rounding.Down,
+            format = "%.0f",
+        },
+    })
 
     durationBinding = C_DurationUtil.CreateDurationTextBinding()
     durationBinding:SetFontString(timerText)
     durationBinding:SetTextFormat("{}", {
         {
             property = Enum.DurationTextBindingProperty.RemainingDuration,
-            formatter = secondsFormatter,
+            formatter = numericFormatter,
         },
     })
     durationBinding:SetUpdateInterval(0)
@@ -147,7 +146,9 @@ local function ReadBarColor(bar)
 end
 
 function Display:Initialize()
-    if not (C_DurationUtil and C_DurationUtil.CreateDuration and C_DurationUtil.CreateDurationTextBinding) then
+    if not (C_DurationUtil and C_DurationUtil.CreateDuration and C_DurationUtil.CreateDurationTextBinding
+        and C_StringUtil and C_StringUtil.CreateNumericRuleFormatter
+        and Enum and Enum.NumericRuleFormatRounding) then
         error(addonName .. " requires the Retail Duration API.", 2)
     end
 
