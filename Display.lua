@@ -4,6 +4,7 @@ local Display = {}
 ns.Display = Display
 
 local frame
+local iconTexture
 local labelText
 local prefixText
 local timerText
@@ -12,7 +13,9 @@ local dragHint
 local durationBinding
 local secondsFormatter
 local durationObject
-local sourceColor
+local sourceColor = { 1, 1, 1, 1 }
+local sourceIcon
+local sourceIconShown = false
 
 local function GetFontPath()
     local media = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -51,13 +54,18 @@ local function ApplyLayout()
     timerText:ClearAllPoints()
     suffixText:ClearAllPoints()
 
+    iconTexture:ClearAllPoints()
+    iconTexture:SetSize(ns.db.fontSize, ns.db.fontSize)
+
     if ns.db.layout == "STACKED" then
         labelText:SetPoint("CENTER", frame, "CENTER", 0, 18 + spacing / 2)
+        iconTexture:SetPoint("RIGHT", labelText, "LEFT", -spacing, 0)
         timerText:SetPoint("CENTER", frame, "CENTER", 0, -18 - spacing / 2)
         prefixText:SetPoint("RIGHT", timerText, "LEFT", 0, 0)
         suffixText:SetPoint("LEFT", timerText, "RIGHT", 0, 0)
     else
         labelText:SetPoint("RIGHT", frame, "CENTER", -spacing / 2, 0)
+        iconTexture:SetPoint("RIGHT", labelText, "LEFT", -spacing, 0)
         prefixText:SetPoint("LEFT", labelText, "RIGHT", spacing, 0)
         timerText:SetPoint("LEFT", prefixText, "RIGHT", 0, 0)
         suffixText:SetPoint("LEFT", timerText, "RIGHT", 0, 0)
@@ -163,6 +171,9 @@ function Display:Initialize()
         end
     end)
 
+    iconTexture = frame:CreateTexture(nil, "ARTWORK")
+    iconTexture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
     labelText = frame:CreateFontString(nil, "OVERLAY")
     labelText:SetWordWrap(false)
     labelText:SetMaxLines(1)
@@ -194,12 +205,12 @@ function Display:ApplySettings()
         ApplyShadow(fontString)
     end
 
-    local textColor = ns.db.followBarColor and sourceColor or ns.db.textColor
-    textColor = textColor or ns.db.textColor
-    SetColor(labelText, textColor)
-    SetColor(prefixText, ns.db.sameTimerColor and textColor or ns.db.timerColor)
-    SetColor(timerText, ns.db.sameTimerColor and textColor or ns.db.timerColor)
-    SetColor(suffixText, ns.db.sameTimerColor and textColor or ns.db.timerColor)
+    SetColor(labelText, sourceColor)
+    SetColor(prefixText, sourceColor)
+    SetColor(timerText, sourceColor)
+    SetColor(suffixText, sourceColor)
+    iconTexture:SetTexture(sourceIcon)
+    iconTexture:SetShown(sourceIconShown)
 
     frame:ClearAllPoints()
     frame:SetPoint("CENTER", UIParent, "CENTER", ns.db.x, ns.db.y)
@@ -217,7 +228,9 @@ function Display:ApplySettings()
 end
 
 function Display:ShowBar(bar)
-    sourceColor = ReadBarColor(bar)
+    sourceColor = ReadBarColor(bar) or { 1, 1, 1, 1 }
+    sourceIcon = bar:GetIcon()
+    sourceIconShown = bar.candyBarIconFrame and bar.candyBarIconFrame:IsShown() or false
     labelText:SetText(bar:GetLabel())
     self:ApplySettings()
     BindExpiration(bar.exp)
@@ -225,7 +238,9 @@ function Display:ShowBar(bar)
 end
 
 function Display:ShowTest(text, seconds)
-    sourceColor = nil
+    sourceColor = { 1, 0.82, 0, 1 }
+    sourceIcon = 134400
+    sourceIconShown = true
     labelText:SetText(text)
     self:ApplySettings()
     BindExpiration(GetTime() + seconds)
@@ -237,7 +252,9 @@ function Display:Hide()
         durationBinding:SetEnabled(false)
     end
     durationObject = nil
-    sourceColor = nil
+    sourceColor = { 1, 1, 1, 1 }
+    sourceIcon = nil
+    sourceIconShown = false
     if frame then
         frame:Hide()
     end

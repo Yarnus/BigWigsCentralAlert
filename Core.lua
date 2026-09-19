@@ -6,10 +6,6 @@ local defaults = {
     outline = "OUTLINE",
     monochrome = false,
     shadow = true,
-    followBarColor = true,
-    textColor = { 1, 0.82, 0, 1 },
-    timerColor = { 1, 1, 1, 1 },
-    sameTimerColor = false,
     layout = "INLINE",
     spacing = 8,
     x = 0,
@@ -17,12 +13,15 @@ local defaults = {
     locked = true,
     brackets = true,
     rounding = "CEIL",
+    showImportant = true,
+    showNormal = true,
+    leadTime = 10,
 }
 
 local bars = setmetatable({}, { __mode = "k" })
 local sequence = 0
 local currentBar
-local expiryTimer
+local transitionTimer
 local refreshPending = false
 
 local function CopyDefaults(source)
@@ -61,51 +60,54 @@ function ns.BuildCountdownAffixes(brackets)
     return brackets and "(" or "", brackets and ")" or ""
 end
 
-function ns.SelectShortest(records)
+function ns.SelectShortest(records, settings, now)
     local selectedBar, selectedExpiration, selectedOrder
-    local fallbackBar, fallbackOrder
+    local nextEligibleAt
+    local leadTime = settings.leadTime or 0
 
     for bar, record in pairs(records) do
-        if bar.running and not bar.paused then
-            if not fallbackOrder or record.order < fallbackOrder then
-                fallbackBar, fallbackOrder = bar, record.order
-            end
-
-            local expiration = bar.exp
-            if CanRead(expiration) and (not selectedExpiration
-                or expiration < selectedExpiration
-                or expiration == selectedExpiration and record.order < selectedOrder) then
-                selectedBar = bar
-                selectedExpiration = expiration
-                selectedOrder = record.order
+        local categoryEnabled = record.important and settings.showImportant
+            or not record.important and settings.showNormal
+        if categoryEnabled and bar.running and not bar.paused and CanRead(bar.exp) then
+            local remaining = bar.exp - now
+            if remaining > 0 and remaining <= leadTime then
+                if not selectedExpiration
+                    or bar.exp < selectedExpiration
+                    or bar.exp == selectedExpiration and record.order < selectedOrder then
+                    selectedBar = bar
+                    selectedExpiration = bar.exp
+                    selectedOrder = record.order
+                end
+            elseif remaining > leadTime then
+                local eligibleAt = bar.exp - leadTime
+                if not nextEligibleAt or eligibleAt < nextEligibleAt then
+                    nextEligibleAt = eligibleAt
+                end
             end
         end
     end
 
-    return selectedBar or fallbackBar
+    return selectedBar, nextEligibleAt
 end
 
-local function CancelExpiryTimer()
-    if expiryTimer then
-        expiryTimer:Cancel()
-        expiryTimer = nil
+local function CancelTransitionTimer()
+    if transitionTimer then
+        transitionTimer:Cancel()
+        transitionTimer = nil
     end
 end
 
-local function ScheduleExpiration(bar)
-    CancelExpiryTimer()
-    if not bar or not CanRead(bar.exp) then
+local function ScheduleTransition(selected, nextEligibleAt)
+    CancelTransitionTimer()
+    local wakeAt = selected and selected.exp or nextEligibleAt
+    if not CanRead(wakeAt) then
         return
     end
 
-    local delay = math.max(0.05, bar.exp - GetTime() + 0.05)
-    expiryTimer = C_Timer.NewTimer(delay, function()
-        expiryTimer = nil
-        if currentBar == bar then
-            bars[bar] = nil
-            currentBar = nil
-            ns.RefreshSelection(true)
-        end
+    local delay = math.max(0.05, wakeAt - GetTime() + 0.05)
+    transitionTimer = C_Timer.NewTimer(delay, function()
+        transitionTimer = nil
+        ns.RefreshSelection(true)
     end)
 end
 
@@ -115,13 +117,13 @@ function ns.RefreshSelection(force)
         return
     end
 
-    local selected = ns.SelectShortest(bars)
+    local selected, nextEligibleAt = ns.SelectShortest(bars, ns.db, GetTime())
     if selected == currentBar and not force then
         return
     end
 
     currentBar = selected
-    ScheduleExpiration(selected)
+    ScheduleTransition(selected, nextEligibleAt)
     if selected then
         ns.Display:ShowBar(selected)
     else
@@ -139,13 +141,31 @@ function ns.RequestRefresh()
     end)
 end
 
-function ns.TrackEmphasizedBar(bar)
+function ns.TrackBar(bar)
     if not bar then
         return
     end
-    sequence = sequence + 1
-    bars[bar] = { order = sequence }
-    ns.RefreshSelection(currentBar == bar)
+    local record = bars[bar]
+    if not record then
+        sequence = sequence + 1
+        record = { order = sequence, important = false }
+        bars[bar] = record
+    end
+    ns.RefreshSelection(true)
+end
+
+function ns.MarkBarImportant(bar)
+    if not bar then
+        return
+    end
+    local record = bars[bar]
+    if not record then
+        sequence = sequence + 1
+        record = { order = sequence }
+        bars[bar] = record
+    end
+    record.important = true
+    ns.RefreshSelection(true)
 end
 
 function ns.ForgetBar(bar)
@@ -156,7 +176,7 @@ function ns.ForgetBar(bar)
     local wasCurrent = currentBar == bar
     if wasCurrent then
         currentBar = nil
-        CancelExpiryTimer()
+        CancelTransitionTimer()
     end
     ns.RefreshSelection(wasCurrent)
 end
@@ -178,13 +198,17 @@ function ns.ForgetModule(module)
 
     if currentWasRemoved then
         currentBar = nil
-        CancelExpiryTimer()
+        CancelTransitionTimer()
     end
     ns.RefreshSelection(currentWasRemoved)
 end
 
+function ns.SettingsChanged()
+    ns.RefreshSelection(true)
+end
+
 function ns.ClearBars()
-    CancelExpiryTimer()
+    CancelTransitionTimer()
     bars = setmetatable({}, { __mode = "k" })
     currentBar = nil
     if not ns.testActive and ns.Display then
@@ -194,15 +218,15 @@ end
 
 function ns.StartTest()
     ns.testActive = true
-    CancelExpiryTimer()
+    CancelTransitionTimer()
     currentBar = nil
-    ns.Display:ShowTest(ns.L.TEST_TEXT, 15)
+    ns.Display:ShowTest(ns.L.TEST_TEXT, math.max(5, ns.db.leadTime))
 end
 
 function ns.StopTest()
     ns.testActive = false
     ns.Display:Hide()
-    ns.RefreshSelection()
+    ns.RefreshSelection(true)
 end
 
 function ns.ToggleTest()
@@ -217,6 +241,7 @@ function ns.ResetSettings()
     BigWigsCentralAlertDB = CopyDefaults(defaults)
     ns.db = BigWigsCentralAlertDB
     ns.Display:ApplySettings()
+    ns.SettingsChanged()
     if ns.Options then
         ns.Options:Refresh()
     end

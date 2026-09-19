@@ -6,8 +6,12 @@ ns.Adapter = Adapter
 local listener = {}
 local candyRegistered = false
 
+local function OnBarCreated(_, _, bar)
+    ns.TrackBar(bar)
+end
+
 local function OnBarEmphasized(_, _, bar)
-    ns.TrackEmphasizedBar(bar)
+    ns.MarkBarImportant(bar)
 end
 
 local function OnBarLifecycleChanged()
@@ -41,6 +45,7 @@ function Adapter:Initialize()
         return
     end
 
+    BigWigsLoader.RegisterMessage(listener, "BigWigs_BarCreated", OnBarCreated)
     BigWigsLoader.RegisterMessage(listener, "BigWigs_BarEmphasized", OnBarEmphasized)
     BigWigsLoader.RegisterMessage(listener, "BigWigs_PauseBar", OnBarLifecycleChanged)
     BigWigsLoader.RegisterMessage(listener, "BigWigs_ResumeBar", OnBarLifecycleChanged)

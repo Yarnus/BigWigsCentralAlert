@@ -38,7 +38,7 @@ local function CreateCheckbox(parent, key, label, x, y, onChanged)
 end
 
 local sliderIndex = 0
-local function CreateSlider(parent, key, label, x, y, width, minValue, maxValue, step)
+local function CreateSlider(parent, key, label, x, y, width, minValue, maxValue, step, onChanged)
     sliderIndex = sliderIndex + 1
     local name = addonName .. "Slider" .. sliderIndex
     local slider = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
@@ -51,11 +51,18 @@ local function CreateSlider(parent, key, label, x, y, width, minValue, maxValue,
     _G[name .. "Low"]:SetText(tostring(minValue))
     _G[name .. "High"]:SetText(tostring(maxValue))
     slider:SetScript("OnValueChanged", function(_, value)
+        if refreshing then
+            return
+        end
         if step >= 1 then
             value = math.floor(value + 0.5)
         end
         ns.db[key] = value
-        Apply()
+        if onChanged then
+            onChanged(value)
+        else
+            Apply()
+        end
     end)
     controls[key] = slider
     return slider
@@ -80,43 +87,6 @@ local function CreateDropdown(parent, key, label, x, y, width, valuesProvider)
     dropdown._bwcaDropdown = true
     controls[key] = dropdown
     return dropdown
-end
-
-local function CreateColorButton(parent, key, label, x, y)
-    CreateLabel(parent, label, x, y)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 20)
-    button:SetSize(110, 24)
-    button:SetText(" ")
-    local swatch = button:CreateTexture(nil, "ARTWORK")
-    swatch:SetPoint("TOPLEFT", button, "TOPLEFT", 8, -6)
-    swatch:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -8, 6)
-    swatch:SetColorTexture(1, 1, 1, 1)
-    button.swatch = swatch
-    button:SetScript("OnClick", function()
-        local color = ns.db[key]
-        local previous = { color[1], color[2], color[3], color[4] }
-        local function UpdateColor()
-            local r, g, b = ColorPickerFrame:GetColorRGB()
-            color[1], color[2], color[3], color[4] = r, g, b, 1
-            swatch:SetColorTexture(r, g, b, 1)
-            Apply()
-        end
-        ColorPickerFrame:SetupColorPickerAndShow({
-            r = color[1],
-            g = color[2],
-            b = color[3],
-            hasOpacity = false,
-            swatchFunc = UpdateColor,
-            cancelFunc = function()
-                color[1], color[2], color[3], color[4] = unpack(previous)
-                swatch:SetColorTexture(color[1], color[2], color[3], color[4])
-                Apply()
-            end,
-        })
-    end)
-    controls[key] = button
-    return button
 end
 
 local function GetFonts()
@@ -167,10 +137,9 @@ function Options:Initialize()
     CreateCheckbox(panel, "monochrome", ns.L.MONOCHROME, 260, -168)
     CreateCheckbox(panel, "shadow", ns.L.SHADOW, 465, -168)
 
-    CreateCheckbox(panel, "followBarColor", ns.L.FOLLOW_BAR_COLOR, 28, -226)
-    CreateCheckbox(panel, "sameTimerColor", ns.L.SAME_TIMER_COLOR, 330, -226)
-    CreateColorButton(panel, "textColor", ns.L.TEXT_COLOR, 28, -260)
-    CreateColorButton(panel, "timerColor", ns.L.TIMER_COLOR, 190, -260)
+    CreateCheckbox(panel, "showImportant", ns.L.SHOW_IMPORTANT, 28, -226, ns.SettingsChanged)
+    CreateCheckbox(panel, "showNormal", ns.L.SHOW_NORMAL, 330, -226, ns.SettingsChanged)
+    CreateSlider(panel, "leadTime", ns.L.LEAD_TIME, 28, -285, 620, 0, 20, 1, ns.SettingsChanged)
 
     CreateDropdown(panel, "layout", ns.L.LAYOUT, 28, -335, 190, StaticValues(
         { label = ns.L.LAYOUT_INLINE, value = "INLINE" },
